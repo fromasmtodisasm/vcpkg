@@ -374,7 +374,6 @@ With a project open, go to Tools->NuGet Package Manager->Package Manager Console
     }
 #endif
 
-#if defined(_WIN32)
     static void integrate_powershell(const VcpkgPaths& paths)
     {
         static constexpr StringLiteral TITLE = "PowerShell Tab-Completion";
@@ -402,7 +401,6 @@ With a project open, go to Tools->NuGet Package Manager->Package Manager Console
 
         Checks::exit_with_code(VCPKG_LINE_INFO, rc);
     }
-#else
     static void integrate_bash(const VcpkgPaths& paths)
     {
         const auto home_path = System::get_environment_variable("HOME").value_or_exit(VCPKG_LINE_INFO);
@@ -443,7 +441,6 @@ With a project open, go to Tools->NuGet Package Manager->Package Manager Console
         fs.write_contents(bashrc_path, Strings::join("\n", bashrc_content) + '\n', VCPKG_LINE_INFO);
         Checks::exit_success(VCPKG_LINE_INFO);
     }
-#endif
 
 #if defined(_WIN32)
     const char* const INTEGRATE_COMMAND_HELPSTRING =
@@ -451,13 +448,13 @@ With a project open, go to Tools->NuGet Package Manager->Package Manager Console
         "first use\n"
         "  vcpkg integrate remove          Remove user-wide integration\n"
         "  vcpkg integrate project         Generate a referencing nuget package for individual VS project use\n"
-        "  vcpkg integrate powershell      Enable PowerShell tab-completion\n";
+        "  vcpkg integrate powershell      Enable PowerShell tab-completion\n"
 #else
     const char* const INTEGRATE_COMMAND_HELPSTRING =
         "  vcpkg integrate install         Make installed packages available user-wide.\n"
         "  vcpkg integrate remove          Remove user-wide integration\n"
-        "  vcpkg integrate bash            Enable bash tab-completion\n";
 #endif
+        "  vcpkg integrate bash            Enable bash tab-completion\n";
 
     namespace Subcommand
     {
@@ -473,11 +470,11 @@ With a project open, go to Tools->NuGet Package Manager->Package Manager Console
         return
         {
             Subcommand::INSTALL, Subcommand::REMOVE,
-#if defined(_WIN32)
+//#if defined(_WIN32)
                 Subcommand::PROJECT, Subcommand::POWERSHELL,
-#else
+//#else
                 Subcommand::BASH,
-#endif
+//#endif
         };
     }
 
@@ -512,7 +509,7 @@ With a project open, go to Tools->NuGet Package Manager->Package Manager Console
         {
             return integrate_powershell(paths);
         }
-#else
+//#else
         if (args.command_arguments[0] == Subcommand::BASH)
         {
             return integrate_bash(paths);
