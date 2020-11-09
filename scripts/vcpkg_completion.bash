@@ -1,5 +1,3 @@
-#/usr/bin/env bash
-
 _vcpkg_completions()
 {
   local vcpkg_executable=${COMP_WORDS[0]}
@@ -11,7 +9,8 @@ _vcpkg_completions()
   # zlib:x64-windows
   local cur
   _get_comp_words_by_ref -n : cur
-  __ltrim_colon_completions "$cur"
+  #__ltrim_colon_completions "$cur"
 }
 
 complete -F _vcpkg_completions vcpkg
+complete -F _vcpkg_completions vcpkg.exe
