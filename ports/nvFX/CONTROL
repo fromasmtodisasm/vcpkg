@@ -1,0 +1,10 @@
+Source: nvfx
+Version: 1.0
+Homepage: https://github.com/fromasmtodisasm/nvfx
+Description: API-agnostic description of effects for objects materials and scene managemen
+Default-Features: glad
+
+Feature: glad
+Build-Depends: glad
+Description: Opengl loader
+
