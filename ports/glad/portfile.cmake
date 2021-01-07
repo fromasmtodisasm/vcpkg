@@ -24,6 +24,8 @@ vcpkg_configure_cmake(
     SOURCE_PATH ${SOURCE_PATH}
     PREFER_NINJA
     OPTIONS
+        -DGLAD_API="gl=4.6"
+        -DGLAD_ALL_EXTENSIONS=ON
         -DGLAD_NO_LOADER=OFF
         -DGLAD_EXPORT=OFF
         -DGLAD_INSTALL=ON

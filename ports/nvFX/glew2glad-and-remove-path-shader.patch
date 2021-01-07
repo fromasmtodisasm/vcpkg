@@ -1,0 +1,871 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a01bfeb..d3d7a01 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -26,7 +26,6 @@ SET( USE_SVCUI ON CACHE BOOL "Use the optional UI" )
+ SET( USE_GLUT OFF CACHE BOOL "Use Glut or not(in the case of Windows)" )
+ SET( NVFXCC_ON_EFFECTS OFF CACHE BOOL "compile effects of samples with nvFxcc cmd-line during project builds" )
+ #SET( GLUT_LOCATION "" CACHE PATH "Path for Glut, if cmake didn't find it" )
+-#SET( GLEW_LOCATION "" CACHE PATH "Path for Glew, if cmake didn't find it" )
+ 
+ # Specify the list of directories to search for cmake modules.
+ set(CMAKE_MODULE_PATH
+@@ -115,7 +114,7 @@ if(USE_OPENGL)
+   endif()
+   # ===============> GLEW
+   if (NOT APPLE)
+-      find_package(GLEW REQUIRED)
++      find_package(glad CONFIG REQUIRED)
+   endif()
+   # ===============> OPTIX
+   if(USE_OPTIX)
+diff --git a/FxLib/Container.cpp b/FxLib/Container.cpp
+index b89557d..5d220a2 100644
+--- a/FxLib/Container.cpp
++++ b/FxLib/Container.cpp
+@@ -1916,9 +1916,11 @@ void Container::moveGlobalUniformsToBuffer(CstBuffer* pBuff)
+         case FX_CUDAPROG: // for CUDA, create a special version
+             pSP = new_ProgramCUDA(this);
+             break;
++#if 0
+         case FX_PATHPROG:
+             pSP = new_ProgramPath(this);
+             break;
++#endif
+         case FX_COMPUTEPROG:
+             pSP = new_Program(this);
+             break;
+diff --git a/FxLib/Fx.h b/FxLib/Fx.h
+index 83c59cc..4cdd9c2 100644
+--- a/FxLib/Fx.h
++++ b/FxLib/Fx.h
+@@ -370,7 +370,7 @@ protected:
+     int                     m_totalLines;
+     std::string             m_shaderCode; ///< this string will hold shader code until we finally compile it
+     /// a map of GLSL objects sorted with the domain (type) : vertex, fragment...
+-    typedef std::map<GLenum, GLhandleARB> ShaderObjects;
++    typedef std::map<GLenum, GLuint> ShaderObjects;
+     ShaderObjects           m_shaderObjs;
+     /// \name Kernel specific (CUDA and possible others)
+     /// @{
+@@ -2354,8 +2354,12 @@ inline ShaderType asShaderType(IPassState::Type t)
+         return FX_TESPROG;
+     case IPassState::TComputeShader:
+         return FX_COMPUTEPROG;
++#if 0
+     case IPassState::TPathShader:
+         return FX_PATHPROG;
++#else
++        assert(0);
++#endif
+     case IPassState::TCUDAModule:
+         return FX_CUDAPROG;
+     default:
+@@ -2403,8 +2407,12 @@ inline int asShaderFlag(ShaderType type)
+         return FX_TESS_EVALUATION_SHADER_BIT;
+     case FX_COMPUTEPROG:
+         return FX_COMPUTE_SHADER_BIT;
++#if 0
+     case FX_PATHPROG:
+         return FX_PATH_CODE_BIT;
++#else
++        assert(0);
++#endif
+     case FX_CUDAPROG:
+         break;
+     }
+diff --git a/FxLib/Pass.cpp b/FxLib/Pass.cpp
+index f4b0049..36ba800 100644
+--- a/FxLib/Pass.cpp
++++ b/FxLib/Pass.cpp
+@@ -508,7 +508,7 @@ static char *debugPassStateType[] =
+     "TCUDAGridSz", ///< size of the Grid for CUDA
+     "TCUDABlockSz", ///< size of the Block for CUDA
+     "TCUDAShMemSz", ///< size of the shared memory
+-    "TPathShader", ///< the pass state specifies some vector commands (SVG/PS). No a shader but set of instructions !
++    //"TPathShader", ///< the pass state specifies some vector commands (SVG/PS). No a shader but set of instructions !
+     "TPathFillMode", ///< typically INVERT, COUNT_UP_NV, COUNT_DOWN_NV or PATH_FILL_MODE_NV
+     "TPathReference",
+     "TPathMask",
+@@ -943,7 +943,7 @@ bool Pass::validate()
+             std::map<std::string, PassState*> passStatesBaseLayerTES;
+             std::map<std::string, PassState*> passStatesBaseLayerPS;
+             std::map<std::string, PassState*> passStatesBaseLayerCS;
+-            std::map<std::string, PassState*> passStatesBaseLayerPathSource;
++            //std::map<std::string, PassState*> passStatesBaseLayerPathSource;
+             PassState*                        passStatesBaseLayerCGrpSz;
+ #ifdef USECUDA
+             std::map<std::string, PassState*> passStatesBaseLayerCUDA;
+@@ -983,9 +983,11 @@ bool Pass::validate()
+                 case PassState::TComputeGroup:
+                     passStatesBaseLayerCGrpSz = (*it);
+                     break;
++#if 0
+                 case PassState::TPathShader:
+                     passStatesBaseLayerPathSource[name] = (*it);
+                     break;
++#endif
+ #ifdef USECUDA
+                 case PassState::TCUDAModule:
+                     passStatesBaseLayerCUDA[name] = (*it);
+@@ -1194,6 +1196,7 @@ bool Pass::validate()
+                     }
+                 }
+                 // TODO: this program can ONLY be alone. Check and raise Warning if NOT
++#if 0
+                 if(passStatesBaseLayerPathSource.size() > 0)
+                 {
+                     m_pBaseStatesLayer->program->cleanup(); // to remove any other shader
+@@ -1209,6 +1212,7 @@ bool Pass::validate()
+                         ++iMPS;
+                     }
+                 }
++#endif
+                 //
+                 // Now we can link (inside bind())
+                 //
+@@ -1318,6 +1322,7 @@ bool Pass::validate()
+                 //
+                 // Path Rendering Program
+                 //
++#if 0
+                 if(passStatesBaseLayerPathSource.size() > 0)
+                 {
+                     IProgram* pShdProg = createShaderProgram(passStatesBaseLayerPathSource, nvFX::FX_PATHPROG, m_pBaseStatesLayer->programPipeline, 0);
+@@ -1326,6 +1331,7 @@ bool Pass::validate()
+                     // in this special Path-rendering case, let's store the only one (there can't be more) program in m_pBaseStatesLayer->program
+                     m_pBaseStatesLayer->program = static_cast<Program*>(pShdProg);
+                 }
++#endif
+                 // Now we want to validate
+                 //
+                 if(m_pBaseStatesLayer->programPipeline && !m_pBaseStatesLayer->programPipeline->validate())
+@@ -1368,7 +1374,7 @@ bool Pass::validate()
+                 std::map<std::string, PassState*> passStatesLayerTES(passStatesBaseLayerTES);
+                 std::map<std::string, PassState*> passStatesLayerPS(passStatesBaseLayerPS);
+                 std::map<std::string, PassState*> passStatesLayerCS(passStatesBaseLayerCS);
+-                std::map<std::string, PassState*> passStatesLayerPathSource(passStatesBaseLayerPathSource);
++                //std::map<std::string, PassState*> passStatesLayerPathSource(passStatesBaseLayerPathSource);
+ #ifdef USECUDA
+                 std::map<std::string, PassState*> passStatesLayerCUDA(passStatesBaseLayerCUDA);
+ #endif
+@@ -1400,8 +1406,10 @@ bool Pass::validate()
+                     case PassState::TComputeShader:
+                         passStatesLayerCS[name] = (*it);
+                         break;
++#if 0
+                     case PassState::TPathShader:
+                         passStatesLayerPathSource[name] = (*it);
++#endif
+                         break;
+ #ifdef USECUDA
+                     case PassState::TCUDAModule:
+@@ -1525,6 +1533,7 @@ bool Pass::validate()
+                             ++iMPS;
+                         }
+                     }
++#if 0
+                     // TODO: this program can ONLY be alone. Check and raise Warning if NOT
+                     if(passStatesBaseLayerPathSource.size() > 0)
+                     {
+@@ -1541,6 +1550,7 @@ bool Pass::validate()
+                             ++iMPS;
+                         }
+                     }
++#endif
+                     //
+                     // Now we can link (inside bind())
+                     //
+@@ -1620,6 +1630,7 @@ bool Pass::validate()
+                     //
+                     // Path Shader program
+                     //
++#if 0
+                     if(passStatesBaseLayerPathSource.size() > 0)
+                     {
+                         IProgram* pShdProg = createShaderProgram(passStatesBaseLayerPathSource, nvFX::FX_PATHPROG, sl.programPipeline, layerID);
+@@ -1628,6 +1639,7 @@ bool Pass::validate()
+                         // in this special Path-rendering case, let's store the only one (there can't be more) program in m_pBaseStatesLayer->program
+                         sl.program = static_cast<Program*>(pShdProg);
+                     }
++#endif
+                     //
+                     // Now we want to validate
+                     //
+diff --git a/FxLibGL/CMakeLists.txt b/FxLibGL/CMakeLists.txt
+index d9e84de..bcc1156 100644
+--- a/FxLibGL/CMakeLists.txt
++++ b/FxLibGL/CMakeLists.txt
+@@ -3,7 +3,7 @@ project(FxLibGL)
+ include_directories( 
+ "../include"
+ "../FxLib"
+-"${GLEW_INCLUDE_DIR}")
++)
+ 
+ if(CUDA_INCLUDE_DIR)
+   include_directories(
+@@ -35,18 +35,6 @@ set(SOURCE_FILES
+   StateGroupGL.cpp
+   UniformGL.cpp
+ )
+-#####################################################################################
+-# Glew : source or lib
+-  # Glew : source or lib
+-#  if(GLEW_SOURCE)
+-#    message(STATUS "found Glew source code. Using it instead of library")
+-#    LIST(APPEND SOURCE_FILES ${GLEW_SOURCE})
+-#    add_definitions(-DGLEW_STATIC)
+-#  else()
+-#      message(STATUS "using GLEW library")
+-#      LIST(APPEND PLATFORM_LIBRARIES ${GLEW_LIBRARY})
+-#  endif()
+-add_definitions(-DGLEW_NO_GLU)
+ 
+ source_group(sources FILES ${SOURCE_FILES})
+ source_group("" FILES ${PUBLIC_HEADERS})
+@@ -76,7 +64,6 @@ if(USE_DLLSO)
+     LIST(APPEND PLATFORM_LIBRARIES ${GLUT_LIBRARIES} )
+     include_directories(${GLUT_INCLUDE_DIR})
+   endif()
+-  add_definitions(-DGLEW_NO_GLU)
+   add_library(FxLibGL SHARED
+   ${PUBLIC_HEADERS}
+   ${HEADERS}
+@@ -95,13 +82,9 @@ else()
+   )
+   #####################################################################################
+ endif()
++find_package(glad CONFIG REQUIRED)
++target_link_libraries(FxLibGL PRIVATE glad::glad)
+ 
+-if (WIN32)
+-    add_definitions(
+-        # Link against the static version of GLEW.
+-        -DGLEW_STATIC
+-    )
+-endif()
+ 
+ 
+ #linkage dependencies would only be for a SHARED...
+diff --git a/FxLibGL/FxLibGL.cpp b/FxLibGL/FxLibGL.cpp
+index 4d9b8ad..d8fbc61 100644
+--- a/FxLibGL/FxLibGL.cpp
++++ b/FxLibGL/FxLibGL.cpp
+@@ -134,7 +134,12 @@ void delete_StateGroupDST(StateGroupDST *p)
+ #ifndef OGLES2
+ StateGroupPath *new_StateGroupPR(Container *pCont, const char* name)
+ {
++#if 0
+     return new StateGroupPathGL(pCont, name);
++#else
++    assert(0);
++    return nullptr;
++#endif
+ }
+ void delete_StateGroupPR(StateGroupPath *p)
+ {
+@@ -149,11 +154,16 @@ Program* new_Program(Container *pCont)
+ }
+ Program* new_ProgramPath(Container *pCont)
+ {
++#if 0
+ #ifndef OGLES2
+     return new PathProgram(pCont);
+ #else
+     return NULL;
+ #endif
++#else
++    return nullptr;
++    assert(0);
++#endif
+ }
+ void delete_Program(IProgram *pProg)
+ {
+@@ -163,11 +173,17 @@ void delete_Program(IProgram *pProg)
+ 
+ Shader* new_ShaderPath(const char* name, bool bPostscript)
+ {
++#if 0
+ #ifndef OGLES2
+     return new PathShader(name, bPostscript);
+ #else
+     return NULL;
+ #endif
++#else
++    
++    assert(0);
++    return nullptr;
++#endif
+ }
+ Shader* new_GLSLShader(const char* name)
+ {
+@@ -438,7 +454,7 @@ void Pass::clearRenderTargets(PassInfo   *pr)
+         for(i=0; i<numRTs; i++)
+         {
+ #ifndef OGLES2
+-            glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT + i);
++            glDrawBuffer(GL_COLOR_ATTACHMENT0 + i);
+ #else
+             assert(0);
+             #pragma MESSAGE("TODO TODO TODO TODO TODO : HOW do we clear all the render targets in OGLES2 ?")
+diff --git a/FxLibGL/GLSLProgram.cpp b/FxLibGL/GLSLProgram.cpp
+index d9b9725..64d2906 100644
+--- a/FxLibGL/GLSLProgram.cpp
++++ b/FxLibGL/GLSLProgram.cpp
+@@ -409,7 +409,7 @@ void GLSLProgram::cleanup()
+             //igshd->second->cleanupShader();
+             GLhandleARB o = igshd->second->getGLSLShaderObj(FX_GEOMPROG);
+             igshd->second->removeUser(this);
+-            glDetachObjectARB(m_program, o);
++            glDetachShader(m_program, o);
+             ++igshd;
+         }
+         ShaderMap::iterator icshd = m_tcsShaders.begin();
+@@ -418,7 +418,7 @@ void GLSLProgram::cleanup()
+             //icshd->second->cleanupShader();
+             GLhandleARB o = icshd->second->getGLSLShaderObj(FX_TCSPROG);
+             icshd->second->removeUser(this);
+-            glDetachObjectARB(m_program, o);
++            glDetachShader(m_program, o);
+             ++icshd;
+         }
+         ShaderMap::iterator ieshd = m_tesShaders.begin();
+@@ -427,7 +427,7 @@ void GLSLProgram::cleanup()
+             //ieshd->second->cleanupShader();
+             GLhandleARB o = ieshd->second->getGLSLShaderObj(FX_TESPROG);
+             ieshd->second->removeUser(this);
+-            glDetachObjectARB(m_program, o);
++            glDetachShader(m_program, o);
+             ++ieshd;
+         }
+ #endif
+@@ -451,7 +451,7 @@ void GLSLProgram::cleanup()
+             //icshd->second->cleanupShader();
+             GLhandleARB o = icshd->second->getGLSLShaderObj(FX_COMPUTEPROG);
+             icshd->second->removeUser(this);
+-            glDetachObjectARB(m_program, o);
++            glDetachShader(m_program, o);
+             ++icshd;
+         }
+ #endif
+@@ -800,11 +800,11 @@ bool GLSLProgram::bind(IContainer* pContainer)
+     //
+ #ifndef OGLES2
+     if(m_srIndicesVS.size()>0)
+-        glUniformSubroutinesuiv(GL_VERTEX_SHADER_ARB, (int)m_srIndicesVS.size(), &(m_srIndicesVS[0]));
++        glUniformSubroutinesuiv(GL_VERTEX_SHADER, (int)m_srIndicesVS.size(), &(m_srIndicesVS[0]));
+     if(m_srIndicesFS.size()>0)
+-        glUniformSubroutinesuiv(GL_FRAGMENT_SHADER_ARB, (int)m_srIndicesFS.size(), &(m_srIndicesFS[0]));
++        glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, (int)m_srIndicesFS.size(), &(m_srIndicesFS[0]));
+     if(m_srIndicesGS.size()>0)
+-        glUniformSubroutinesuiv(GL_GEOMETRY_SHADER_ARB, (int)m_srIndicesGS.size(), &(m_srIndicesGS[0]));
++        glUniformSubroutinesuiv(GL_GEOMETRY_SHADER, (int)m_srIndicesGS.size(), &(m_srIndicesGS[0]));
+     if(m_srIndicesTCS.size()>0)
+         glUniformSubroutinesuiv(GL_TESS_CONTROL_SHADER, (int)m_srIndicesTCS.size(), &(m_srIndicesTCS[0]));
+     if(m_srIndicesTES.size()>0)
+@@ -1002,17 +1002,17 @@ bool GLSLProgram::bindSubRoutineToUniform(int uniformID, GLenum shadertype, char
+             {
+                 switch(shadertype)
+                 {
+-                case GL_VERTEX_SHADER_ARB:
++                case GL_VERTEX_SHADER:
+                     if(uniformID >= (int)m_srIndicesVS.size())
+                         m_srIndicesVS.resize(uniformID+1);
+                     m_srIndicesVS[uniformID] = id;
+                     break;
+-                case GL_FRAGMENT_SHADER_ARB:
++                case GL_FRAGMENT_SHADER:
+                     if(uniformID >= (int)m_srIndicesFS.size())
+                         m_srIndicesFS.resize(uniformID+1);
+                     m_srIndicesFS[uniformID] = id;
+                     break;
+-                case GL_GEOMETRY_SHADER_ARB:
++                case GL_GEOMETRY_SHADER:
+                     if(uniformID >= (int)m_srIndicesGS.size())
+                         m_srIndicesGS.resize(uniformID+1);
+                     m_srIndicesGS[uniformID] = id;
+diff --git a/FxLibGL/GLSLShader.cpp b/FxLibGL/GLSLShader.cpp
+index 28d139b..0352c35 100644
+--- a/FxLibGL/GLSLShader.cpp
++++ b/FxLibGL/GLSLShader.cpp
+@@ -60,7 +60,7 @@ inline GLenum convertShaderType(int type)
+         break;
+ #ifndef OGLES2
+     case FX_GEOMPROG:
+-        shdtype = GL_GEOMETRY_SHADER_ARB;
++        shdtype = GL_GEOMETRY_SHADER;
+         break;
+     case FX_TCSPROG:
+         shdtype = GL_TESS_CONTROL_SHADER;
+@@ -68,9 +68,9 @@ inline GLenum convertShaderType(int type)
+     case FX_TESPROG:
+         shdtype = GL_TESS_EVALUATION_SHADER;
+         break;
+-    case GL_VERTEX_SHADER_ARB:
+-    case GL_FRAGMENT_SHADER_ARB:
+-    case GL_GEOMETRY_SHADER_ARB:
++    case GL_VERTEX_SHADER:
++    case GL_FRAGMENT_SHADER:
++    case GL_GEOMETRY_SHADER:
+     case GL_TESS_CONTROL_SHADER:
+     case GL_TESS_EVALUATION_SHADER:
+         shdtype = type;
+diff --git a/FxLibGL/OpenGL.h b/FxLibGL/OpenGL.h
+index 5d65316..429bdf2 100644
+--- a/FxLibGL/OpenGL.h
++++ b/FxLibGL/OpenGL.h
+@@ -34,22 +34,12 @@
+ #   include <OpenGLES/ES2/gl.h>
+ #   include <OpenGLES/ES2/glext.h>
+ #else // Non-ES : Windows
+-#   ifdef NOGLEW
+ #       pragma MESSAGE("-----------------------------------------------")
+-#       pragma MESSAGE("---- Windows + regular gl.h  ------------------")
++#       pragma MESSAGE("---- Windows + glad.h  ------------------------")
+ #       pragma MESSAGE("-----------------------------------------------")
+-#       include "gl.h"
+-#       include "glext.h"
+-#       include "wgl.h"
+-#       include "wglext.h"
+-#   else
+-#       pragma MESSAGE("-----------------------------------------------")
+-#       pragma MESSAGE("---- Windows + Glew.h  ------------------------")
+-#       pragma MESSAGE("-----------------------------------------------")
+-#       include <GL/glew.h>
++#       include <glad/glad.h>
+ #      ifndef WIN32
+ #       include <GL/glxew.h>
+ #      endif
+-#   endif
+ #endif
+ //#endif
+diff --git a/FxLibGL/PathRendering.cpp b/FxLibGL/PathRendering.cpp
+index 591a00e..3156754 100644
+--- a/FxLibGL/PathRendering.cpp
++++ b/FxLibGL/PathRendering.cpp
+@@ -1,3 +1,4 @@
++#if 0
+ /*
+     Copyright (c) 2013, NVIDIA CORPORATION. All rights reserved.
+     Copyright (c) 2013, Tristan Lorach. All rights reserved.
+@@ -370,7 +371,7 @@ bool PathShader::compileShader(ShaderType type, IContainer *pContainer)
+     GLhandleARB &shaderObj = m_shaderObjs[0];
+     if(!shaderObj)
+     {
+-        shaderObj = glGenPathsNV(1);
++        shaderObj = glCreateProgram();
+         // add common parts
+         std::string strShd;
+         PathShader *pShd;
+@@ -485,7 +486,7 @@ void PathShader::cleanupShader()
+     {
+         GLuint &o = iShd->second;
+         if(o)
+-            glDeletePathsNV(o, 1);
++            glDeleteShader(o);
+         o = 0;
+         ++iShd;
+     }
+@@ -516,6 +517,7 @@ GLhandleARB PathShader::getGLSLShaderObj(GLenum type)
+  **/ /*************************************************************************/ 
+ void StateGroupPathGL::apply(IPass *pass, PassInfo * pr, int n)
+ {
++#if 0
+     Pass *p = static_cast<Pass*>(pass);
+     Program *prog = p->m_pActiveStatesLayer->program;
+     // TODO: Test if the program is for Path rendering
+@@ -602,6 +604,8 @@ void StateGroupPathGL::apply(IPass *pass, PassInfo * pr, int n)
+         }
+         ++it;
+     }
++#endif
++    assert(0);
+ }
+ /*************************************************************************/ /**
+  ** In OpenGL, validate is not mandatory.
+@@ -612,3 +616,4 @@ bool StateGroupPathGL::validate()
+     return true;
+ }
+ 
++#endif
+diff --git a/FxLibGL/StateGroupGL.cpp b/FxLibGL/StateGroupGL.cpp
+index a68cb95..eab9aed 100644
+--- a/FxLibGL/StateGroupGL.cpp
++++ b/FxLibGL/StateGroupGL.cpp
+@@ -229,7 +229,9 @@ void StateGroupDSTGL::apply()
+             case GL_DEPTH_TEST:
+         #ifndef OGLES2
+             case GL_DEPTH_CLAMP:
++#if 0
+             case GL_DEPTH_BOUNDS_TEST_EXT:
++#endif
+         #endif
+             case GL_STENCIL_TEST:
+                 if(s->value == GL_TRUE) glEnable(s->state);
+@@ -241,10 +243,12 @@ void StateGroupDSTGL::apply()
+             case GL_DEPTH_WRITEMASK:
+                 glDepthMask(s->value);
+                 break;
++#if 0
+         #ifndef OGLES2
+             case GL_DEPTH_BOUNDS_EXT:
+                 CHECK_TRUE(false);
+         #endif
++#endif
+                 break;
+ 
+             //case GL_STENCIL_FRONT_REF:
+diff --git a/FxLibGL/UniformGL.cpp b/FxLibGL/UniformGL.cpp
+index e60db5c..4fde2d0 100644
+--- a/FxLibGL/UniformGL.cpp
++++ b/FxLibGL/UniformGL.cpp
+@@ -382,7 +382,7 @@ Uniform*    UniformGLSL::update(ShadowedData* pData, Pass *pass, int layerID, bo
+             {
+                 // C:\p4\sw\docs\gpu\drivers\OpenGL\specs\GL_ARB_shader_subroutine.txt
+                 // case of sub-routine : try to create one target for each shader type, if needed
+-                static const GLenum allShaderTyles[] = {GL_VERTEX_SHADER_ARB, GL_FRAGMENT_SHADER_ARB, GL_GEOMETRY_SHADER_ARB, GL_TESS_CONTROL_SHADER, GL_TESS_EVALUATION_SHADER, 0}; //TODO: add more
++                static const GLenum allShaderTyles[] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER, GL_GEOMETRY_SHADER, GL_TESS_CONTROL_SHADER, GL_TESS_EVALUATION_SHADER, 0}; //TODO: add more
+                 const GLenum *pShdType = allShaderTyles;
+                 while(*pShdType)
+                 {
+diff --git a/FxLibGL/resourcesGL.cpp b/FxLibGL/resourcesGL.cpp
+index f308462..26cc4e3 100644
+--- a/FxLibGL/resourcesGL.cpp
++++ b/FxLibGL/resourcesGL.cpp
+@@ -48,32 +48,25 @@ namespace nvFX
+ /// \brief this internal format list \e must be the same as ResourceFormat !
+ #define FORMATENUMS\
+     /*BFMTCASE(FMT_INTENSITY, , GL_INTENSITY8)*/\
+-    BFMTCASE(FMT_INTENSITY8, 1, GL_INTENSITY8, 1)\
+-    BFMTCASE(FMT_INTENSITY16F, 2, GL_INTENSITY16F_ARB, 2)\
+-    BFMTCASE(FMT_INTENSITY32F, 3, GL_INTENSITY32F_ARB, 4)\
++    /*BFMTCASE(FMT_INTENSITY8, 1, GL_INTENSITY8, 1)*/\
+     /*BFMTCASE(FMT_LUMINANCE_ALPHA, , GL_LUMINANCE8_ALPHA8, 2)*/\
+-    BFMTCASE(FMT_LUMINANCE_ALPHA8, 4, GL_LUMINANCE8_ALPHA8, 2)\
++    /*BFMTCASE(FMT_LUMINANCE_ALPHA8, 4, GL_LUMINANCE8_ALPHA8, 2)*/\
+     /*BFMTCASE(FMT_LA, , GL_LUMINANCE8_ALPHA8, 2)*/\
+     /*BFMTCASE(FMT_LA8, , GL_LUMINANCE8_ALPHA8, 2)*/\
+-    BFMTCASE(FMT_RG16F_NV, 5, GL_FLOAT_RG16_NV, 4)\
+-    /*BFMTCASE(FMT_LA16F, , GL_LUMINANCE_ALPHA16F_ARB, 4)*/\
+-    BFMTCASE(FMT_LUMINANCE_ALPHA16F, 6, GL_LUMINANCE_ALPHA16F_ARB, 4)\
+-    /*BFMTCASE(FMT_LA32F, , GL_LUMINANCE_ALPHA32F_ARB, 8)*/\
+-    BFMTCASE(FMT_LUMINANCE_ALPHA32F, 7, GL_LUMINANCE_ALPHA32F_ARB, 8)\
+-    BFMTCASE(FMT_RG32F_NV, 8, GL_FLOAT_RG32_NV, 8)\
++    /*BFMTCASE(FMT_LA16F, , GL_LUMINANCE_ALPHA16F, 4)*/\
++    /*BFMTCASE(FMT_LA32F, , GL_LUMINANCE_ALPHA32F, 8)*/\
+     /*BFMTCASE(FMT_RGB, , GL_RGB8, 3)*/\
+     BFMTCASE(FMT_RGB8, 9, GL_RGB8, 3)\
+-    BFMTCASE(FMT_RGB16F, 10, GL_RGB16F_ARB, 6)\
+-    BFMTCASE(FMT_RGB32F, 11, GL_RGB32F_ARB, 12)\
++    BFMTCASE(FMT_RGB16F, 10, GL_RGB16F, 6)\
++    BFMTCASE(FMT_RGB32F, 11, GL_RGB32F, 12)\
+     /*BFMTCASE(FMT_RGBA, , GL_RGBA8, 4)*/\
+     BFMTCASE(FMT_RGBA8, 12, GL_RGBA8, 4)\
+-    BFMTCASE(FMT_RGBA16F, 13, GL_RGBA16F_ARB, 8)\
+-    BFMTCASE(FMT_RGBA32F, 14, GL_RGBA32F_ARB, 16)\
++    BFMTCASE(FMT_RGBA16F, 13, GL_RGBA16F, 8)\
++    BFMTCASE(FMT_RGBA32F, 14, GL_RGBA32F, 16)\
+     BFMTCASE(FMT_DEPTH24STENCIL8, 15, GL_DEPTH24_STENCIL8, 4)\
+     BFMTCASE(FMT_DEPTH_COMPONENT32F, 16, 0x8CAC, 4) /* see NV_depth_buffer_float or ARB_depth_buffer_float*/ \
+     BFMTCASE(FMT_DEPTH32F_STENCIL8, 17, 0x8CAD, 4) /* see ARB_depth_buffer_float*/ \
+     BFMTCASE(FMT_RGBA8UI, 18, GL_RGBA8UI, 4) /* see ARB_depth_buffer_float*/ \
+-    BFMTCASE(FMT_FLOATRGBA16NV, 19, GL_FLOAT_RGBA16_NV, 8) /*see GL_NV_float_buffer*/\
+     BFMTCASE(FMT_RG,20, GL_RG, 2)\
+     BFMTCASE(FMT_RG_INTEGER,21, GL_RG_INTEGER, 8)\
+     BFMTCASE(FMT_R8,22, GL_R8, 1)\
+@@ -163,13 +156,14 @@ bool createRenderBuffer(int w, int h, GLenum format, int depthSamples, int cover
+ #ifndef OGLES2
+     int query;
+     bool multisample = depthSamples > 1;
+-    bool csaa = (coverageSamples > depthSamples) && (glRenderbufferStorageMultisampleCoverageNV != NULL);
++    //bool csaa = (coverageSamples > depthSamples) && (glRenderbufferStorageMultisampleCoverageNV != NULL);
+     //
+     // NVIDIA CSAA
+     //
++#if 0
+     if(csaa)
+     {
+-        glRenderbufferStorageMultisampleCoverageNV( GL_RENDERBUFFER, coverageSamples, depthSamples, format, w, h);
++        glRenderbufferStorageMultisampleCoverageV( GL_RENDERBUFFER, coverageSamples, depthSamples, format, w, h);
+ 
+         glGetRenderbufferParameteriv( GL_RENDERBUFFER, GL_RENDERBUFFER_COVERAGE_SAMPLES_NV, &query);
+         if ( query < coverageSamples)
+@@ -187,7 +181,9 @@ bool createRenderBuffer(int w, int h, GLenum format, int depthSamples, int cover
+         else if ( query > depthSamples) 
+             depthSamples = query;
+     }
+-    else if(multisample)
++    else 
++#endif
++	if(multisample)
+     {
+         glRenderbufferStorageMultisample( GL_RENDERBUFFER, depthSamples, format, w, h);
+         glGetRenderbufferParameteriv( GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES, &query);
+@@ -286,44 +282,46 @@ bool ResourceGL::createRenderResource()
+     case FMT_RGBA:              format = GL_RGBA;               StupidOGLExternalFmt=GL_RGBA;       FreakinType = GL_FLOAT; break;
+ #else
+     //case INTENSITY:
+-    case FMT_INTENSITY8:        format = GL_INTENSITY8;         StupidOGLExternalFmt=GL_BGRA; FreakinType = GL_FLOAT; break;
+-    case FMT_INTENSITY16F:      format = GL_INTENSITY16F_ARB;   StupidOGLExternalFmt=GL_BGRA; FreakinType = GL_FLOAT; break;
+-    case FMT_INTENSITY32F:      format = GL_INTENSITY32F_ARB;   StupidOGLExternalFmt=GL_BGRA; FreakinType = GL_FLOAT; break;
++    //case FMT_INTENSITY8:        format = GL_INTENSITY8;         StupidOGLExternalFmt=GL_BGRA; FreakinType = GL_FLOAT; break;
++    //case FMT_INTENSITY16F:      format = GL_INTENSITY16F;   StupidOGLExternalFmt=GL_BGRA; FreakinType = GL_FLOAT; break;
++    //case FMT_INTENSITY32F:      format = GL_INTENSITY32F;   StupidOGLExternalFmt=GL_BGRA; FreakinType = GL_FLOAT; break;
+ 
+     //case FMT_LUMINANCE_ALPHA:
+     //case FMT_LA:
+     //case FMT_LA8:
+-    case FMT_LUMINANCE_ALPHA8:  format = GL_LUMINANCE8_ALPHA8;  StupidOGLExternalFmt=GL_RGB; FreakinType = GL_FLOAT; break;
+-    case FMT_RG16F_NV:          format = GL_FLOAT_RG16_NV;      StupidOGLExternalFmt=GL_BGRA; FreakinType = GL_FLOAT; break;
++    //case FMT_LUMINANCE_ALPHA8:  format = GL_LUMINANCE8_ALPHA8;  StupidOGLExternalFmt=GL_RGB; FreakinType = GL_FLOAT; break;
++    //case FMT_RG16F_NV:          format = GL_FLOAT_RG16_NV;      StupidOGLExternalFmt=GL_BGRA; FreakinType = GL_FLOAT; break;
+     //case FMT_LA16F:
+-    case FMT_LUMINANCE_ALPHA16F:format = GL_LUMINANCE_ALPHA16F_ARB; StupidOGLExternalFmt=GL_LUMINANCE; FreakinType = GL_FLOAT; break;
++    //case FMT_LUMINANCE_ALPHA16F:format = GL_LUMINANCE_ALPHA16F; StupidOGLExternalFmt=GL_LUMINANCE; FreakinType = GL_FLOAT; break;
+     //case FMT_LA32F:
+-    case FMT_LUMINANCE_ALPHA32F:format = GL_LUMINANCE_ALPHA32F_ARB; StupidOGLExternalFmt=GL_RGB; FreakinType = GL_FLOAT; break;
+-    case FMT_RG32F_NV:          format = GL_FLOAT_RG32_NV;      StupidOGLExternalFmt=GL_RGB; FreakinType = GL_FLOAT; break;
++    //case FMT_LUMINANCE_ALPHA32F:format = GL_LUMINANCE_ALPHA32F; StupidOGLExternalFmt=GL_RGB; FreakinType = GL_FLOAT; break;
++    //case FMT_RG32F_NV:          format = GL_FLOAT_RG32_NV;      StupidOGLExternalFmt=GL_RGB; FreakinType = GL_FLOAT; break;
+ 
+     //case FMT_RGB:
+     case FMT_RGB8:              format = GL_RGB8;               StupidOGLExternalFmt=GL_RGB; FreakinType = GL_FLOAT; break;
+-    case FMT_RGB16F:            format = GL_RGB16F_ARB;         StupidOGLExternalFmt=GL_RGB; FreakinType = GL_FLOAT; break;
+-    case FMT_RGB32F:            format = GL_RGB32F_ARB;         StupidOGLExternalFmt=GL_RGB; FreakinType = GL_FLOAT; break;
++    case FMT_RGB16F:            format = GL_RGB16F;         StupidOGLExternalFmt=GL_RGB; FreakinType = GL_FLOAT; break;
++    case FMT_RGB32F:            format = GL_RGB32F;         StupidOGLExternalFmt=GL_RGB; FreakinType = GL_FLOAT; break;
+ 
+     //case FMT_RGBA:
+     case FMT_RGBA8:             format = GL_RGBA8;              StupidOGLExternalFmt=GL_RGBA; FreakinType = GL_FLOAT; break;
+     case FMT_RGBA8UI:           format = GL_RGBA8UI;            StupidOGLExternalFmt=GL_RGBA_INTEGER; FreakinType = GL_FLOAT/*GL_UNSIGNED_BYTE*/; break;
+-    case FMT_RGBA16F:           format = GL_RGBA16F_ARB;        StupidOGLExternalFmt=GL_RGBA; FreakinType = GL_FLOAT; break;
+-    case FMT_RGBA32F:           format = GL_RGBA32F_ARB;        StupidOGLExternalFmt=GL_RGBA; FreakinType = GL_FLOAT; break;
++    case FMT_RGBA16F:           format = GL_RGBA16F;        StupidOGLExternalFmt=GL_RGBA; FreakinType = GL_FLOAT; break;
++    case FMT_RGBA32F:           format = GL_RGBA32F;        StupidOGLExternalFmt=GL_RGBA; FreakinType = GL_FLOAT; break;
+ 
+     case FMT_DEPTH24STENCIL8:   format = GL_DEPTH24_STENCIL8; StupidOGLExternalFmt=GL_DEPTH_COMPONENT; FreakinType = GL_FLOAT; break;
+ 
++#if 0
+     case FMT_DEPTH_COMPONENT32F://GL_DEPTH_COMPONENT32F_ARB is 0x8CAC
+         format = 0x8CAC;//or we could use GL_DEPTH_COMPONENT32F_NV; 
+         StupidOGLExternalFmt=GL_LUMINANCE; FreakinType = GL_FLOAT; 
+         break;
+-
+     case FMT_DEPTH32F_STENCIL8://GL_DEPTH32F_STENCIL8_ARB is 0x8CAD
+         format = 0x8CAD;
+         StupidOGLExternalFmt=GL_LUMINANCE; FreakinType = GL_FLOAT; 
+         break;
+-    case FMT_FLOATRGBA16NV:                 format = GL_FLOAT_RGBA16_NV;        StupidOGLExternalFmt=GL_RGBA; FreakinType = GL_FLOAT; break;
++#endif
++
++    //case FMT_FLOATRGBA16NV:                 format = GL_FLOAT_RGBA16_NV;        StupidOGLExternalFmt=GL_RGBA; FreakinType = GL_FLOAT; break;
+     case FMT_RG:                            format = GL_RG;                     StupidOGLExternalFmt=GL_RG; FreakinType = GL_FLOAT; break;
+     case FMT_RG_INTEGER:                    format = GL_RG_INTEGER;             StupidOGLExternalFmt=GL_RG_INTEGER; FreakinType = GL_INT; break;
+     case FMT_R8:                            format = GL_R8;                     StupidOGLExternalFmt=GL_RGBA; FreakinType = GL_FLOAT; break;
+@@ -601,10 +599,12 @@ bool checkFramebufferStatus()
+             //assert(!"Framebuffer incomplete attachment");
+             break;
+ #ifndef OGLES2
++#if 0
+         case GL_FRAMEBUFFER_INCOMPLETE_FORMATS_EXT:
+             LOGE("Error>> Framebuffer incomplete, attached images must have same format\n");
+             //assert(!"Framebuffer incomplete, attached images must have same format");
+             break;
++#endif
+         case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER:
+             LOGE("Error>> Framebuffer incomplete, missing draw buffer\n");
+             //assert(!"Framebuffer incomplete, missing draw buffer");
+@@ -613,10 +613,12 @@ bool checkFramebufferStatus()
+             LOGE("Error>> Framebuffer incomplete, missing read buffer\n");
+             //assert(!"Framebuffer incomplete, missing read buffer");
+             break;
++#if 0
+         case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT:
+             LOGE("Error>> Framebuffer incomplete, attached images must have same dimensions\n");
+             //assert(!"Framebuffer incomplete, attached images must have same dimensions");
+             break;
++#endif
+ #else
+         case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS:
+             LOGE("Error>> Framebuffer incomplete, attached images must have same dimensions\n");
+diff --git a/FxParser/CMakeLists.txt b/FxParser/CMakeLists.txt
+index bf89554..5504e34 100644
+--- a/FxParser/CMakeLists.txt
++++ b/FxParser/CMakeLists.txt
+@@ -69,21 +69,10 @@ if(USE_DLLSO)
+       ${ZLIB_LIBRARIES}
+       ${CUDA_LIBRARIES}
+   )
+-  # Glew : source or lib
+-  #if(GLEW_SOURCE)
+-  #  message(STATUS "found Glew source code. Using it instead of library")
+-  #  LIST(APPEND SOURCE_FILES ${GLEW_SOURCE})
+-  #  add_definitions(-DGLEW_STATIC)
+-  #else()
+-  #    message(STATUS "using GLEW library")
+-  #    LIST(APPEND PLATFORM_LIBRARIES ${GLEW_LIBRARY})
+-  #endif()
+-  # GLUT
+   if(USE_GLUT AND GLUT_FOUND)
+     LIST(APPEND PLATFORM_LIBRARIES ${GLUT_LIBRARIES} )
+     include_directories(${GLUT_INCLUDE_DIR})
+   endif()
+-  add_definitions(-DGLEW_NO_GLU)
+ 
+   add_library(FxParser SHARED
+     ${PUBLIC_HEADERS}
+diff --git a/include/FxLib.h b/include/FxLib.h
+index 91f975b..121fcf4 100644
+--- a/include/FxLib.h
++++ b/include/FxLib.h
+@@ -344,7 +344,7 @@ enum ShaderType
+     FX_TESPROG = 4,
+     FX_CUDAPROG = 5,
+     FX_COMPUTEPROG = 6,
+-    FX_PATHPROG = 7,
++    //FX_PATHPROG = 7,
+     FX_UNKNOWNSHADER = 8,
+ };
+ /*************************************************************************/ /**
+diff --git a/nvFxcc/CMakeLists.txt b/nvFxcc/CMakeLists.txt
+index 5a4547d..0a17284 100644
+--- a/nvFxcc/CMakeLists.txt
++++ b/nvFxcc/CMakeLists.txt
+@@ -10,7 +10,6 @@ set(PLATFORM_LIBRARIES
+ 
+ include_directories(
+   "${nvFx_SOURCE_DIR}/include"
+-    ${GLEW_INCLUDE_DIR}
+ )
+ 
+ set(PUBLIC_HEADERS
+@@ -27,16 +26,6 @@ set(HEADERS
+ set(SOURCE_FILES
+   nvFXcc.cpp
+ )
+-#####################################################################################
+-# Glew : source or lib
+-if(GLEW_SOURCE)
+-  message(STATUS "found Glew source code. Using it instead of library")
+-  LIST(APPEND SOURCE_FILES ${GLEW_SOURCE})
+-  add_definitions(-DGLEW_STATIC)
+-else()
+-    message(STATUS "using GLEW library")
+-    LIST(APPEND PLATFORM_LIBRARIES ${GLEW_LIBRARY})
+-endif()
+ 
+ source_group(sources FILES ${SOURCE_FILES})
+ source_group("" FILES ${PUBLIC_HEADERS})
+diff --git a/nvFxcc/nvFXcc.cpp b/nvFxcc/nvFXcc.cpp
+index 54620fd..f5f6836 100644
+--- a/nvFxcc/nvFXcc.cpp
++++ b/nvFxcc/nvFXcc.cpp
+@@ -42,7 +42,7 @@
+ #include <GLES2/gl2.h>
+ #include <GLES2/gl2ext.h>
+ #else
+-#include "gl\glew.h"
++#include <glad/glad.h>
+ #endif
+ 
+ char      g_path[200];
+@@ -129,55 +129,55 @@ void myOpenGLCallback(  GLenum source,
+     char *strSeverity = strSource;
+     switch(source)
+     {
+-    case GL_DEBUG_SOURCE_API_ARB:
++    case GL_DEBUG_SOURCE_API:
+         strSource = "API";
+         break;
+-    case GL_DEBUG_SOURCE_WINDOW_SYSTEM_ARB:
++    case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+         strSource = "WINDOWS";
+         break;
+-    case GL_DEBUG_SOURCE_SHADER_COMPILER_ARB:
++    case GL_DEBUG_SOURCE_SHADER_COMPILER:
+         strSource = "SHADER COMP.";
+         break;
+-    case GL_DEBUG_SOURCE_THIRD_PARTY_ARB:
++    case GL_DEBUG_SOURCE_THIRD_PARTY:
+         strSource = "3RD PARTY";
+         break;
+-    case GL_DEBUG_SOURCE_APPLICATION_ARB:
++    case GL_DEBUG_SOURCE_APPLICATION:
+         strSource = "APP";
+         break;
+-    case GL_DEBUG_SOURCE_OTHER_ARB:
++    case GL_DEBUG_SOURCE_OTHER:
+         strSource = "OTHER";
+         break;
+     }
+     switch(type)
+     {
+-    case GL_DEBUG_TYPE_ERROR_ARB:
++    case GL_DEBUG_TYPE_ERROR:
+         strType = "ERROR";
+         break;
+-    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
++    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+         strType = "Deprecated";
+         break;
+-    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
++    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+         strType = "Undefined";
+         break;
+-    case GL_DEBUG_TYPE_PORTABILITY_ARB:
++    case GL_DEBUG_TYPE_PORTABILITY:
+         strType = "Portability";
+         break;
+-    case GL_DEBUG_TYPE_PERFORMANCE_ARB:
++    case GL_DEBUG_TYPE_PERFORMANCE:
+         strType = "Performance";
+         break;
+-    case GL_DEBUG_TYPE_OTHER_ARB:
++    case GL_DEBUG_TYPE_OTHER:
+         strType = "Other";
+         break;
+     }
+     switch(severity)
+     {
+-    case GL_DEBUG_SEVERITY_HIGH_ARB:
++    case GL_DEBUG_SEVERITY_HIGH:
+         strSeverity = "High";
+         break;
+-    case GL_DEBUG_SEVERITY_MEDIUM_ARB:
++    case GL_DEBUG_SEVERITY_MEDIUM:
+         strSeverity = "Medium";
+         break;
+-    case GL_DEBUG_SEVERITY_LOW_ARB:
++    case GL_DEBUG_SEVERITY_LOW:
+         strSeverity = "Low";
+         break;
+     }
+@@ -339,13 +339,12 @@ void initGL()
+     wglMakeCurrent( g_hDC, g_hRC );
+     //wglSwapInterval(0);
+ 
+-    GLenum res = glewInit();
++    GLenum res = gladLoadGL();
+     if(res)
+     {
+-        nvFX::printf("Failed to initialize Glew\n");
++        nvFX::printf("Failed to initialize glad\n");
+         exit(1);
+     }
+-    GLboolean b = glewIsSupported("GL_ARB_texture_compression");
+ 
+     GETPROCADDRESS(PFNWGLCREATECONTEXTATTRIBSARB,wglCreateContextAttribsARB)
+     if(wglCreateContextAttribsARB)
+@@ -384,9 +383,9 @@ void initGL()
+         //GETPROCADDRESS(PFNGLDEBUGMESSAGECALLBACKARB,    glDebugMessageCallbackARB);
+         //GETPROCADDRESS(PFNGLGETDEBUGMESSAGELOGARB,      glGetDebugMessageLogARB);
+         //GETPROCADDRESS(PFNWGLGETPOINTERV,               glGetPointerv);
+-        if(glDebugMessageCallbackARB)
++        if(glDebugMessageCallback)
+         {
+-            glDebugMessageCallbackARB((GLDEBUGPROCARB)myOpenGLCallback, NULL);
++            glDebugMessageCallback((GLDEBUGPROCARB)myOpenGLCallback, NULL);
+         }
+ #endif
+         }
